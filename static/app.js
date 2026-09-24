@@ -981,7 +981,9 @@ async function enablePushNotifications() {
             });
 
             if (token) {
-                await db.collection('users').doc(currentUser.uid).set({ fcmToken: token }, { merge: true });
+                await db.collection('users').doc(currentUser.uid).set({
+					  fcmTokens: firebase.firestore.FieldValue.arrayUnion(token)
+				}, { merge: true });
                 
                 userSettings.pushEnabled = true;
                 await saveGamificationSettings();
