@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <!-- Mobile Viewport & PWA Einstellungen -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Habit Tracker Dashboard</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Firebase SDKs (Compat Versionen) -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+	<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-messaging-compat.js"></script>
+	<script>
+		if ('serviceWorker' in navigator) {
+			navigator.serviceWorker.register('/firebase-messaging-sw.js')
+			.then(reg => console.log('Service Worker erfolgreich registriert:', reg))
+			.catch(err => console.error('Fehler bei Service Worker Registrierung:', err));
+		}
+	</script>
+</head>
+<body class="bg-gray-900 text-gray-100 p-4 sm:p-6 lg:p-10 xl:p-12 font-sans pb-32 min-h-screen">
+    <div class="max-w-full xl:max-w-[1400px] 2xl:max-w-[1600px] mx-auto transition-all duration-300">
+
+        <!-- Header & Login Bar -->
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8 bg-gray-800/40 p-4 sm:p-6 lg:p-8 rounded-2xl border border-gray-700/50 backdrop-blur-md">
+            <div>
+                <h1 class="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-indigo-400 tracking-tight">⚡ Automated Habit Tracker</h1>
+                <p class="text-xs sm:text-sm lg:text-base text-gray-400 mt-1">Your way to track your life</p>
+            </div>
+
+            <div class="flex items-center gap-3">
+                <div id="authContainer">
+                    <button id="loginBtn" onclick="loginWithGoogle()" class="bg-white hover:bg-gray-100 text-gray-800 font-semibold px-4 py-2.5 rounded-xl shadow-md text-xs sm:text-sm lg:text-base flex items-center gap-2 border border-gray-300 transition">
+                        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" class="w-4 h-4 lg:w-5 lg:h-5" alt="Google">
+                        Mit Google Anmelden
+                    </button>
+                    <div id="userProfile" class="hidden flex items-center gap-3 bg-gray-800 p-2 pr-4 rounded-full border border-gray-700">
+                        <img id="userAvatar" src="" class="w-8 h-8 lg:w-10 lg:h-10 rounded-full border border-indigo-400" alt="User">
+                        <span id="userName" class="text-xs sm:text-sm lg:text-base font-semibold text-gray-200"></span>
+                        <button onclick="logout()" class="text-xs sm:text-sm text-red-400 hover:text-red-300 ml-1 font-semibold">Abmelden</button>
+                    </div>
+                </div>
+
+                <button onclick="openModal()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-4 sm:px-5 lg:px-6 py-2.5 lg:py-3 rounded-xl shadow-lg transition flex items-center gap-2 text-xs sm:text-sm lg:text-base">
+                    <span class="text-base lg:text-lg font-bold">+</span> Habit erstellen
+                </button>
+            </div>
+        </div>
+
+        <!-- MODAL: NEUEN HABIT ERSTELLEN -->
+        <div id="habitModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center hidden z-50 p-4">
+            <div class="bg-gray-800 p-6 sm:p-8 lg:p-10 rounded-2xl border border-gray-700 w-full max-w-lg shadow-2xl relative">
+                <div class="flex justify-between items-center mb-5">
+                    <h2 class="text-xl lg:text-2xl font-bold text-gray-100">Neuen Habit erstellen</h2>
+                    <button onclick="closeModal()" class="text-gray-400 hover:text-white text-2xl lg:text-3xl font-bold">&times;</button>
+                </div>
+
+                <form id="addHabitForm" class="space-y-4 lg:space-y-5">
+                    <div>
+                        <label class="block text-xs lg:text-sm font-semibold text-gray-300 uppercase tracking-wider mb-1">Name</label>
+                        <input type="text" id="name" placeholder="z. B. Gym" required class="w-full p-3 lg:p-3.5 rounded-xl bg-gray-700 border border-gray-600 text-white text-sm lg:text-base focus:outline-none focus:border-indigo-500">
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs lg:text-sm font-semibold text-gray-300 uppercase tracking-wider mb-1">Ziel (Tage/Woche)</label>
+                            <input type="number" id="goal" min="1" max="7" value="7" required class="w-full p-3 lg:p-3.5 rounded-xl bg-gray-700 border border-gray-600 text-white text-sm lg:text-base focus:outline-none focus:border-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs lg:text-sm font-semibold text-gray-300 uppercase tracking-wider mb-1">XP pro Ausführung</label>
+                            <input type="text" id="xp" value="5.0" required class="w-full p-3 lg:p-3.5 rounded-xl bg-gray-700 border border-gray-600 text-white text-sm lg:text-base focus:outline-none focus:border-indigo-500">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs lg:text-sm font-semibold text-gray-300 uppercase tracking-wider mb-1">Startdatum</label>
+                            <input type="date" id="startDate" required class="w-full p-3 lg:p-3.5 rounded-xl bg-gray-700 border border-gray-600 text-white text-sm lg:text-base focus:outline-none focus:border-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs lg:text-sm font-semibold text-gray-300 uppercase tracking-wider mb-1">Laufzeit</label>
+                            <select id="durationType" onchange="toggleDurationInput('add')" class="w-full p-3 lg:p-3.5 rounded-xl bg-gray-700 border border-gray-600 text-white text-sm lg:text-base focus:outline-none focus:border-indigo-500">
+                                <option value="0">Unbegrenzt</option>
+                                <option value="custom">Anzahl Wochen</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="durationInputContainer" class="hidden">
+                        <label class="block text-xs lg:text-sm font-semibold text-gray-300 uppercase tracking-wider mb-1">Anzahl Wochen</label>
+                        <input type="number" id="durationWeeks" min="1" value="4" class="w-full p-3 lg:p-3.5 rounded-xl bg-gray-700 border border-gray-600 text-white text-sm lg:text-base focus:outline-none focus:border-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs lg:text-sm font-semibold text-gray-300 uppercase tracking-wider mb-1">Akzentfarbe</label>
+                        <input type="color" id="color" value="#6366f1" class="h-10 w-20 bg-gray-700 border border-gray-600 rounded-lg cursor-pointer p-1">
+                    </div>
+                    <div>
+                        <label class="block text-xs lg:text-sm font-semibold text-gray-300 uppercase tracking-wider mb-1">Notizen</label>
+                        <textarea id="notes" rows="2" placeholder="Zusätzliche Infos..." class="w-full p-3 lg:p-3.5 rounded-xl bg-gray-700 border border-gray-600 text-white text-sm lg:text-base focus:outline-none focus:border-indigo-500"></textarea>
+                    </div>
+                    <div class="flex justify-end gap-3 pt-3">
+                        <button type="button" onclick="closeModal()" class="px-4 py-2.5 lg:px-5 lg:py-3 rounded-xl bg-gray-700 text-gray-300 text-sm lg:text-base font-semibold">Abbrechen</button>
+                        <button type="submit" class="px-6 py-2.5 lg:px-7 lg:py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm lg:text-base font-semibold transition">Habit speichern</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- MODAL: HABIT BEARBEITEN -->
+        <div id="editHabitModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center hidden z-50 p-4">
+            <div class="bg-gray-800 p-6 sm:p-8 lg:p-10 rounded-2xl border border-gray-700 w-full max-w-lg shadow-2xl relative">
+                <div class="flex justify-between items-center mb-5">
+                    <h2 class="text-xl lg:text-2xl font-bold text-gray-100">✏️ Habit bearbeiten</h2>
+                    <button onclick="closeEditModal()" class="text-gray-400 hover:text-white text-2xl lg:text-3xl font-bold">&times;</button>
+                </div>
+
+                <form id="editHabitForm" class="space-y-4 lg:space-y-5">
+                    <input type="hidden" id="editHabitId">
+                    <div>
+                        <label class="block text-xs lg:text-sm font-semibold text-gray-300 uppercase tracking-wider mb-1">Name</label>
+                        <input type="text" id="editName" required class="w-full p-3 lg:p-3.5 rounded-xl bg-gray-700 border border-gray-600 text-white text-sm lg:text-base focus:outline-none focus:border-indigo-500">
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs lg:text-sm font-semibold text-gray-300 uppercase tracking-wider mb-1">Ziel (Tage/Woche)</label>
+                            <input type="number" id="editGoal" min="1" max="7" required class="w-full p-3 lg:p-3.5 rounded-xl bg-gray-700 border border-gray-600 text-white text-sm lg:text-base focus:outline-none focus:border-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs lg:text-sm font-semibold text-gray-300 uppercase tracking-wider mb-1">XP pro Ausführung</label>
+                            <input type="text" id="editXp" required class="w-full p-3 lg:p-3.5 rounded-xl bg-gray-700 border border-gray-600 text-white text-sm lg:text-base focus:outline-none focus:border-indigo-500">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs lg:text-sm font-semibold text-gray-300 uppercase tracking-wider mb-1">Startdatum</label>
+                            <input type="date" id="editStartDate" required class="w-full p-3 lg:p-3.5 rounded-xl bg-gray-700 border border-gray-600 text-white text-sm lg:text-base focus:outline-none focus:border-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs lg:text-sm font-semibold text-gray-300 uppercase tracking-wider mb-1">Laufzeit</label>
+                            <select id="editDurationType" onchange="toggleDurationInput('edit')" class="w-full p-3 lg:p-3.5 rounded-xl bg-gray-700 border border-gray-600 text-white text-sm lg:text-base focus:outline-none focus:border-indigo-500">
+                                <option value="0">Unbegrenzt</option>
+                                <option value="custom">Anzahl Wochen</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="editDurationInputContainer" class="hidden">
+                        <label class="block text-xs lg:text-sm font-semibold text-gray-300 uppercase tracking-wider mb-1">Anzahl Wochen</label>
+                        <input type="number" id="editDurationWeeks" min="1" class="w-full p-3 lg:p-3.5 rounded-xl bg-gray-700 border border-gray-600 text-white text-sm lg:text-base focus:outline-none focus:border-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs lg:text-sm font-semibold text-gray-300 uppercase tracking-wider mb-1">Akzentfarbe</label>
+                        <input type="color" id="editColor" class="h-10 w-20 bg-gray-700 border border-gray-600 rounded-lg cursor-pointer p-1">
+                    </div>
+                    <div>
+                        <label class="block text-xs lg:text-sm font-semibold text-gray-300 uppercase tracking-wider mb-1">Notizen</label>
+                        <textarea id="editNotes" rows="2" class="w-full p-3 lg:p-3.5 rounded-xl bg-gray-700 border border-gray-600 text-white text-sm lg:text-base focus:outline-none focus:border-indigo-500"></textarea>
+                    </div>
+                    <div class="flex justify-end gap-3 pt-3">
+                        <button type="button" onclick="closeEditModal()" class="px-4 py-2.5 lg:px-5 lg:py-3 rounded-xl bg-gray-700 text-gray-300 text-sm lg:text-base font-semibold">Abbrechen</button>
+                        <button type="submit" class="px-6 py-2.5 lg:px-7 lg:py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm lg:text-base font-semibold transition">Änderungen speichern</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- MODAL: WOCHEN-ZIEL ANPASSEN -->
+        <div id="weekGoalModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center hidden z-50 p-4">
+            <div class="bg-gray-800 p-6 sm:p-8 rounded-2xl border border-gray-700 w-full max-w-sm shadow-2xl relative">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-lg lg:text-xl font-bold text-gray-100">🎯 Wochen-Ziel anpassen</h2>
+                    <button onclick="closeWeekGoalModal()" class="text-gray-400 hover:text-white text-2xl font-bold">&times;</button>
+                </div>
+                <form id="weekGoalForm" class="space-y-4">
+                    <input type="hidden" id="wgHabitId">
+                    <input type="hidden" id="wgYear">
+                    <input type="hidden" id="wgWeek">
+                    <p class="text-xs sm:text-sm lg:text-base text-gray-300">Ändere das Ziel für <strong id="wgHabitName" class="text-indigo-300"></strong> ausschließlich für diese Woche:</p>
+                    <div>
+                        <label class="block text-xs lg:text-sm font-semibold text-gray-300 uppercase tracking-wider mb-1">Ziel (Tage: 1-7)</label>
+                        <input type="number" id="wgGoal" min="1" max="7" required class="w-full p-3 rounded-xl bg-gray-700 border border-gray-600 text-white text-sm lg:text-base focus:outline-none focus:border-indigo-500">
+                    </div>
+                    <div class="flex justify-end gap-3 pt-2">
+                        <button type="button" onclick="closeWeekGoalModal()" class="px-4 py-2.5 rounded-xl bg-gray-700 text-gray-300 text-sm lg:text-base font-semibold">Abbrechen</button>
+                        <button type="submit" class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm lg:text-base font-semibold transition">Speichern</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- MODAL: HABIT REAKTIVIEREN -->
+        <div id="reactivateHabitModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center hidden z-50 p-4">
+            <div class="bg-gray-800 p-6 sm:p-8 rounded-2xl border border-gray-700 w-full max-w-lg shadow-2xl relative">
+                <div class="flex justify-between items-center mb-5">
+                    <h2 class="text-xl lg:text-2xl font-bold text-gray-100">🔄 Habit reaktivieren</h2>
+                    <button onclick="closeReactivateModal()" class="text-gray-400 hover:text-white text-2xl lg:text-3xl font-bold">&times;</button>
+                </div>
+
+                <form id="reactivateHabitForm" class="space-y-4 lg:space-y-5">
+                    <input type="hidden" id="reactivateHabitId">
+                    <p class="text-sm lg:text-base text-gray-300">Reaktiviere den Habit: <strong id="reactivateHabitName" class="text-indigo-300"></strong></p>
+
+                    <div>
+                        <label class="block text-xs lg:text-sm font-semibold text-gray-300 uppercase tracking-wider mb-1">Neues Startdatum</label>
+                        <input type="date" id="reactivateStartDate" required class="w-full p-3 lg:p-3.5 rounded-xl bg-gray-700 border border-gray-600 text-white text-sm lg:text-base focus:outline-none focus:border-indigo-500">
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs lg:text-sm font-semibold text-gray-300 uppercase tracking-wider mb-1">Laufzeit</label>
+                            <select id="reactivateDurationType" onchange="toggleDurationInput('reactivate')" class="w-full p-3 lg:p-3.5 rounded-xl bg-gray-700 border border-gray-600 text-white text-sm lg:text-base focus:outline-none focus:border-indigo-500">
+                                <option value="0">Unbegrenzt</option>
+                                <option value="custom">Anzahl Wochen</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs lg:text-sm font-semibold text-gray-300 uppercase tracking-wider mb-1">XP pro Ausführung</label>
+                            <input type="text" id="reactivateXp" required class="w-full p-3 lg:p-3.5 rounded-xl bg-gray-700 border border-gray-600 text-white text-sm lg:text-base focus:outline-none focus:border-indigo-500">
+                        </div>
+                    </div>
+
+                    <div id="reactivateDurationInputContainer" class="hidden">
+                        <label class="block text-xs lg:text-sm font-semibold text-gray-300 uppercase tracking-wider mb-1">Anzahl Wochen</label>
+                        <input type="number" id="reactivateDurationWeeks" min="1" value="4" class="w-full p-3 lg:p-3.5 rounded-xl bg-gray-700 border border-gray-600 text-white text-sm lg:text-base focus:outline-none focus:border-indigo-500">
+                    </div>
+
+                    <div class="flex justify-end gap-3 pt-3">
+                        <button type="button" onclick="closeReactivateModal()" class="px-4 py-2.5 lg:px-5 lg:py-3 rounded-xl bg-gray-700 text-gray-300 text-sm lg:text-base font-semibold">Abbrechen</button>
+                        <button type="submit" class="px-6 py-2.5 lg:px-7 lg:py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm lg:text-base font-semibold transition">Reaktivieren</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- MODAL: LÖSCHEN CONFIRMATION -->
+        <div id="deleteModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center hidden z-50 p-4">
+            <div class="bg-gray-800 p-6 sm:p-8 rounded-2xl border border-gray-700 w-full max-w-md shadow-2xl relative">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-lg lg:text-xl font-bold text-gray-100">Habit löschen</h2>
+                    <button onclick="closeDeleteModal()" class="text-gray-400 hover:text-white text-2xl lg:text-3xl font-bold">&times;</button>
+                </div>
+
+                <div id="deleteStep1">
+                    <p class="text-sm lg:text-base text-gray-300 mb-4">Wie möchtest du <strong id="deleteHabitName" class="text-indigo-300"></strong> löschen?</p>
+                    <div class="space-y-3 mb-6">
+                        <label class="flex items-start gap-3 p-3 lg:p-4 bg-gray-700/50 hover:bg-gray-700 rounded-xl cursor-pointer border border-gray-600 transition">
+                            <input type="radio" name="deleteScope" value="this_week" checked class="mt-1 accent-indigo-500">
+                            <div>
+                                <span class="block text-sm lg:text-base font-semibold text-white">1. Nur dieses eine Mal löschen</span>
+                                <span class="block text-xs lg:text-sm text-gray-400">Entfernt den Habit nur aus dieser ausgewählten Woche.</span>
+                            </div>
+                        </label>
+                        <label class="flex items-start gap-3 p-3 lg:p-4 bg-gray-700/50 hover:bg-gray-700 rounded-xl cursor-pointer border border-gray-600 transition">
+                            <input type="radio" name="deleteScope" value="future" class="mt-1 accent-indigo-500">
+                            <div>
+                                <span class="block text-sm lg:text-base font-semibold text-white">2. Nur in der Zukunft löschen</span>
+                                <span class="block text-xs lg:text-sm text-gray-400">Beendet den Habit ab dieser Woche.</span>
+                            </div>
+                        </label>
+                        <label class="flex items-start gap-3 p-3 lg:p-4 bg-gray-700/50 hover:bg-gray-700 rounded-xl cursor-pointer border border-gray-600 transition">
+                            <input type="radio" name="deleteScope" value="all" class="mt-1 accent-indigo-500">
+                            <div>
+                                <span class="block text-sm lg:text-base font-semibold text-red-300">3. Alles löschen</span>
+                                <span class="block text-xs lg:text-sm text-gray-400">Löscht den Habit und sämtliche Einträge komplett.</span>
+                            </div>
+                        </label>
+                    </div>
+                    <div class="flex justify-end gap-3">
+                        <button onclick="closeDeleteModal()" class="px-4 py-2.5 rounded-xl bg-gray-700 text-gray-300 text-sm lg:text-base font-semibold">Abbrechen</button>
+                        <button onclick="goToDeleteStep2()" class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm lg:text-base font-semibold transition">Weiter →</button>
+                    </div>
+                </div>
+
+                <div id="deleteStep2" class="hidden">
+                    <div class="p-4 bg-red-900/30 border border-red-700/50 rounded-xl mb-6">
+                        <p class="text-sm lg:text-base text-red-200 font-semibold mb-1">⚠️ Bitte bestätigen</p>
+                        <p id="deleteConfirmText" class="text-xs lg:text-sm text-gray-300 leading-relaxed"></p>
+                    </div>
+                    <div class="flex justify-end gap-3">
+                        <button onclick="backToDeleteStep1()" class="px-4 py-2.5 rounded-xl bg-gray-700 text-gray-300 text-sm lg:text-base font-semibold">← Zurück</button>
+                        <button onclick="confirmDeleteHabit()" class="px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-sm lg:text-base font-semibold shadow-lg transition">Endgültig löschen</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== TAB 1: TRACKER ==================== -->
+        <div id="view-tracker" class="tab-view space-y-4 sm:space-y-6">
+            <div id="weeksContainer" class="space-y-4 sm:space-y-6"></div>
+        </div>
+
+        <!-- ==================== TAB 2: HABITS ÜBERSICHT ==================== -->
+        <div id="view-habits" class="tab-view hidden space-y-8">
+            <div class="bg-gray-800/80 backdrop-blur-md p-6 lg:p-8 rounded-2xl border border-gray-700 shadow-lg">
+                <h2 class="text-xl lg:text-2xl font-bold text-gray-100">📋 Habits Verwaltung</h2>
+                <p class="text-xs sm:text-sm lg:text-base text-gray-400 mt-1">Übersicht über alle aktiven und abgelaufenen Gewohnheiten.</p>
+            </div>
+
+            <div>
+                <h3 class="text-lg lg:text-xl font-bold text-indigo-300 mb-4">⚡ Aktuelle Habits</h3>
+                <div id="activeHabitsList" class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6"></div>
+            </div>
+
+            <div class="border-t border-gray-800 pt-8">
+                <h3 class="text-lg lg:text-xl font-bold text-gray-400 mb-4">⌛ Abgelaufene Habits</h3>
+                <div id="expiredHabitsList" class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6"></div>
+            </div>
+        </div>
+
+        <!-- ==================== TAB 3: STATS & CHALLENGES ==================== -->
+        <div id="view-stats" class="tab-view hidden space-y-6">
+
+            <!-- ALL-TIME LEVEL CARD -->
+            <div class="bg-gradient-to-r from-indigo-900/90 via-purple-900/90 to-gray-800 p-8 lg:p-10 rounded-2xl border border-indigo-500/40 shadow-2xl relative overflow-hidden">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                    <div>
+                        <span class="text-xs lg:text-sm uppercase tracking-widest text-indigo-300 font-bold block mb-1">👑 All-Time Level</span>
+                        <h2 id="stat-alltime-level" class="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-white">Level 1</h2>
+                    </div>
+                    <div class="sm:text-right">
+                        <span id="stat-alltime-xp" class="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-yellow-400">0.0 XP</span>
+                        <span id="stat-alltime-checkins" class="block text-xs sm:text-sm lg:text-base text-gray-300 mt-1">0 Check-ins gesamt</span>
+                    </div>
+                </div>
+                <div>
+                    <div class="flex justify-between text-xs sm:text-sm lg:text-base text-indigo-200 font-semibold mb-2">
+                        <span>Level Fortschritt</span>
+                        <span id="stat-alltime-progress-text">0 / 100 XP</span>
+                    </div>
+                    <div class="w-full bg-gray-900/70 h-4 rounded-full overflow-hidden border border-indigo-500/30">
+                        <div id="stat-alltime-bar" class="bg-gradient-to-r from-indigo-400 to-yellow-400 h-full w-0 transition-all duration-500"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ZEITBASIERTE CHALLENGES -->
+            <div>
+                <h3 class="text-xl lg:text-2xl font-bold text-gray-200 mb-4">🎯 Zeitbasierte Challenges</h3>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div class="bg-gray-800/90 p-6 rounded-2xl border border-gray-700 shadow-md">
+                        <div class="flex justify-between items-center mb-3">
+                            <span class="text-xs lg:text-sm font-bold text-indigo-400 uppercase tracking-wider">⚡ Wochen-Level</span>
+                            <span id="label-week" class="text-xs lg:text-sm font-mono bg-gray-700 text-gray-300 px-2 py-0.5 rounded-md">KW --</span>
+                        </div>
+                        <div class="flex justify-between items-baseline mb-4">
+                            <span id="stat-week-level" class="text-2xl lg:text-3xl font-extrabold text-white">Level 1</span>
+                            <span id="stat-week-xp" class="text-lg lg:text-xl font-bold text-yellow-400">+0 XP</span>
+                        </div>
+                        <div class="w-full bg-gray-700 h-2.5 rounded-full overflow-hidden mb-2">
+                            <div id="stat-week-bar" class="bg-indigo-500 h-full w-0 transition-all duration-500"></div>
+                        </div>
+                        <span id="stat-week-checkins" class="text-xs lg:text-sm text-gray-400 block text-right">0 Check-ins</span>
+                    </div>
+
+                    <div class="bg-gray-800/90 p-6 rounded-2xl border border-gray-700 shadow-md">
+                        <div class="flex justify-between items-center mb-3">
+                            <span class="text-xs lg:text-sm font-bold text-emerald-400 uppercase tracking-wider">📅 Monats-Level</span>
+                            <span id="label-month" class="text-xs lg:text-sm font-mono bg-gray-700 text-gray-300 px-2 py-0.5 rounded-md">Monat</span>
+                        </div>
+                        <div class="flex justify-between items-baseline mb-4">
+                            <span id="stat-month-level" class="text-2xl lg:text-3xl font-extrabold text-white">Level 1</span>
+                            <span id="stat-month-xp" class="text-lg lg:text-xl font-bold text-yellow-400">+0 XP</span>
+                        </div>
+                        <div class="w-full bg-gray-700 h-2.5 rounded-full overflow-hidden mb-2">
+                            <div id="stat-month-bar" class="bg-emerald-500 h-full w-0 transition-all duration-500"></div>
+                        </div>
+                        <span id="stat-month-checkins" class="text-xs lg:text-sm text-gray-400 block text-right">0 Check-ins</span>
+                    </div>
+
+                    <div class="bg-gray-800/90 p-6 rounded-2xl border border-gray-700 shadow-md">
+                        <div class="flex justify-between items-center mb-3">
+                            <span class="text-xs lg:text-sm font-bold text-cyan-400 uppercase tracking-wider">📊 Quartals-Level</span>
+                            <span id="label-quarter" class="text-xs lg:text-sm font-mono bg-gray-700 text-gray-300 px-2 py-0.5 rounded-md">Q--</span>
+                        </div>
+                        <div class="flex justify-between items-baseline mb-4">
+                            <span id="stat-quarter-level" class="text-2xl lg:text-3xl font-extrabold text-white">Level 1</span>
+                            <span id="stat-quarter-xp" class="text-lg lg:text-xl font-bold text-yellow-400">+0 XP</span>
+                        </div>
+                        <div class="w-full bg-gray-700 h-2.5 rounded-full overflow-hidden mb-2">
+                            <div id="stat-quarter-bar" class="bg-cyan-500 h-full w-0 transition-all duration-500"></div>
+                        </div>
+                        <span id="stat-quarter-checkins" class="text-xs lg:text-sm text-gray-400 block text-right">0 Check-ins</span>
+                    </div>
+
+                    <div class="bg-gray-800/90 p-6 rounded-2xl border border-gray-700 shadow-md">
+                        <div class="flex justify-between items-center mb-3">
+                            <span class="text-xs lg:text-sm font-bold text-amber-400 uppercase tracking-wider">🎆 Jahres-Level</span>
+                            <span id="label-year" class="text-xs lg:text-sm font-mono bg-gray-700 text-gray-300 px-2 py-0.5 rounded-md">Jahr</span>
+                        </div>
+                        <div class="flex justify-between items-baseline mb-4">
+                            <span id="stat-year-level" class="text-2xl lg:text-3xl font-extrabold text-white">Level 1</span>
+                            <span id="stat-year-xp" class="text-lg lg:text-xl font-bold text-yellow-400">+0 XP</span>
+                        </div>
+                        <div class="w-full bg-gray-700 h-2.5 rounded-full overflow-hidden mb-2">
+                            <div id="stat-year-bar" class="bg-amber-500 h-full w-0 transition-all duration-500"></div>
+                        </div>
+                        <span id="stat-year-checkins" class="text-xs lg:text-sm text-gray-400 block text-right">0 Check-ins</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== TAB 4: ARCHIV ==================== -->
+        <div id="view-archive" class="tab-view hidden space-y-6">
+            <div class="bg-gray-800/80 backdrop-blur-md p-6 lg:p-8 rounded-2xl border border-gray-700">
+                <h2 class="text-xl lg:text-2xl font-bold text-gray-200">📦 Archivierte Wochen</h2>
+                <p class="text-xs sm:text-sm lg:text-base text-gray-400 mt-1">Wochen älter als 2 Monate (schreibgeschützt).</p>
+            </div>
+            <div id="archiveContainer" class="space-y-4 sm:space-y-6"></div>
+        </div>
+
+        <!-- ==================== TAB 5: SETTINGS ==================== -->
+        <div id="view-settings" class="tab-view hidden space-y-6">
+            <div class="bg-gray-800 p-6 sm:p-8 lg:p-10 rounded-2xl border border-gray-700 shadow-xl max-w-2xl mx-auto space-y-6">
+                <h2 class="text-xl lg:text-2xl font-bold text-gray-100">⚙️ Einstellungen & Daten</h2>
+                
+                <!-- Ziel-XP & Level-Skalierung -->
+                <div class="bg-gray-700/40 p-6 rounded-xl border border-gray-600/50 space-y-4">
+                    <div>
+                        <h3 class="font-semibold text-indigo-300 text-base lg:text-lg">🎯 Ziel-XP & Level-Skalierung</h3>
+                        <p class="text-xs sm:text-sm text-gray-400 mt-1">Lege fest, wie viele XP für einen Levelaufstieg benötigt werden.</p>
+                    </div>
+                    <div class="grid grid-cols-1 gap-4">
+                        <div>
+                            <label class="block text-xs uppercase tracking-wider text-gray-400 font-bold mb-1">XP pro Level</label>
+                            <input type="number" id="settingXpPerLevel" value="100" class="w-full p-3 rounded-xl bg-gray-700 border border-gray-600 text-white text-sm focus:outline-none focus:border-indigo-500">
+                        </div>
+                    </div>
+                    <button onclick="saveGamificationSettings()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs sm:text-sm px-5 py-2.5 rounded-xl transition shadow-md">
+                        Einstellungen speichern
+                    </button>
+                </div>
+				<!-- Notification -->
+				<div class="mt-6 p-4 bg-gray-800 rounded-xl border border-gray-700">
+					<h4 class="font-bold text-white mb-3">📱 Push-Erinnerung</h4>
+					<div class="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+						<div>
+							<label class="block text-xs text-gray-400 mb-1">Erinnerungs-Uhrzeit</label>
+							<input type="time" id="settingPushTime" class="bg-gray-900 text-white p-2 rounded-lg border border-gray-600 focus:border-indigo-500 w-32">
+						</div>
+						<button type="button" onclick="enablePushNotifications()" class="mt-4 sm:mt-0 bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-lg transition">
+							🔔 Push erlauben
+						</button>
+					</div>
+				</div>
+				
+                <!-- Backup & Export -->
+                <div class="bg-gray-700/40 p-6 rounded-xl border border-gray-600/50 space-y-3">
+                    <h3 class="font-semibold text-indigo-300 text-base lg:text-lg">📥 Daten sichern / Exportieren</h3>
+                    <p class="text-xs sm:text-sm lg:text-base text-gray-400">Sichere alle deine Habits und Cloud-Einträge lokal als Backup.</p>
+                    <button onclick="exportData()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs sm:text-sm lg:text-base px-5 py-2.5 lg:py-3 rounded-xl transition shadow-md">
+                        JSON Backup herunterladen
+                    </button>
+                </div>
+
+                <!-- Daten löschen -->
+                <div class="bg-red-900/20 p-6 rounded-xl border border-red-700/40 space-y-3">
+                    <h3 class="font-semibold text-red-300 text-base lg:text-lg">⚠️ Daten zurücksetzen</h3>
+                    <p class="text-xs sm:text-sm lg:text-base text-gray-400">Löscht alle Habits und Wochen-Logs unwiderruflich aus der Datenbank.</p>
+                    <button onclick="resetData()" class="bg-red-600 hover:bg-red-500 text-white font-semibold text-xs sm:text-sm lg:text-base px-5 py-2.5 lg:py-3 rounded-xl transition shadow-md">
+                        Alle Daten löschen
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- FLOATING NAVIGATION BAR -->
+    <div class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-gray-800/90 backdrop-blur-xl border border-gray-700/80 rounded-full p-2 shadow-2xl flex items-center gap-1.5 sm:gap-2">
+        <button id="nav-btn-tracker" onclick="switchTab('tracker')" class="nav-tab-btn flex items-center gap-2 px-4 sm:px-5 lg:px-6 py-2.5 lg:py-3 rounded-full text-xs sm:text-sm lg:text-base font-semibold transition-all duration-200 bg-gray-700 text-white shadow-md">
+            <span>⚡ Tracker</span>
+        </button>
+        <button id="nav-btn-habits" onclick="switchTab('habits')" class="nav-tab-btn flex items-center gap-2 px-4 sm:px-5 lg:px-6 py-2.5 lg:py-3 rounded-full text-xs sm:text-sm lg:text-base font-semibold transition-all duration-200 text-gray-400 hover:text-white">
+            <span>📋 Habits</span>
+        </button>
+        <button id="nav-btn-stats" onclick="switchTab('stats')" class="nav-tab-btn flex items-center gap-2 px-4 sm:px-5 lg:px-6 py-2.5 lg:py-3 rounded-full text-xs sm:text-sm lg:text-base font-semibold transition-all duration-200 text-gray-400 hover:text-white">
+            <span>🏆 Stats</span>
+        </button>
+        <button id="nav-btn-archive" onclick="switchTab('archive')" class="nav-tab-btn flex items-center gap-2 px-4 sm:px-5 lg:px-6 py-2.5 lg:py-3 rounded-full text-xs sm:text-sm lg:text-base font-semibold transition-all duration-200 text-gray-400 hover:text-white">
+            <span>📦 Archiv</span>
+        </button>
+        <button id="nav-btn-settings" onclick="switchTab('settings')" class="nav-tab-btn flex items-center gap-2 px-4 sm:px-5 lg:px-6 py-2.5 lg:py-3 rounded-full text-xs sm:text-sm lg:text-base font-semibold transition-all duration-200 text-gray-400 hover:text-white">
+            <span>⚙️ Settings</span>
+        </button>
+    </div>
+
+    <script src="static/app.js?v=4"></script>
+</body>
+</html>

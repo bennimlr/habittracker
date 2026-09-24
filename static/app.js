@@ -967,16 +967,24 @@ async function enablePushNotifications() {
     try {
         const permission = await Notification.requestPermission();
         if (permission === 'granted') {
-            // HIER DEINEN KOPIERTEN VAPID KEY EINTRAGEN:
-            const token = await messaging.getToken({ vapidKey: 'BPdI8gj_HEKn2A5QZHgyP0UoFzj-zNQunVsIjNknMFcXvuSETxqHNfUE1icWgfof5LtFNjSF8Wzksxzf7-r8V1c' });
+            // Warten, bis der Service Worker im Browser voll aktiv ist
+            const registration = await navigator.serviceWorker.ready;
+
+            // FCM Token mit der aktiven Registrierung anfordern
+            const token = await messaging.getToken({ 
+                vapidKey: 'DEIN_VAPID_KEY_HIER', // Achte darauf, dass hier dein echter Key steht!
+                serviceWorkerRegistration: registration 
+            });
+
             if (token) {
-                // Token in der Datenbank speichern, damit der Vercel-Server weiß, wohin die Nachricht muss
                 await db.collection('users').doc(currentUser.uid).set({ fcmToken: token }, { merge: true });
                 
                 userSettings.pushEnabled = true;
                 await saveGamificationSettings();
                 
-                alert("Push-Benachrichtigungen aktiviert! 🚀");
+                alert("Push-Benachrichtigungen erfolgreich aktiviert! 🚀");
+            } else {
+                alert("Kein Token erhalten. Bitte versuche es erneut.");
             }
         } else {
             alert("Du hast die Benachrichtigungen blockiert. Bitte in den Browser-Einstellungen erlauben.");
