@@ -91,7 +91,7 @@ async function loadUserSettings() {
     const elWeekXp = document.getElementById('settingTargetWeekXp');
     const elPushTime = document.getElementById('settingPushTime');
 
-    // Nur setzen, wenn das Element auf der aktuellen Seite/Tab existiert
+    // Nur Werte setzen, wenn die Elemente im HTML existieren
     if (elLevelXp) elLevelXp.value = userSettings.xpPerLevel || 100;
     if (elWeekXp) elWeekXp.value = userSettings.targetWeekXp || 215;
     if (elPushTime) elPushTime.value = userSettings.pushTime || "20:00";
