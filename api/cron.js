@@ -18,7 +18,6 @@ export default async function handler(req, res) {
 
     for (const doc of usersSnapshot.docs) {
       const userData = doc.data();
-      // Prüfe sowohl das neue Token-Array als auch alte Einzel-Tokens
       const tokens = userData.fcmTokens || (userData.fcmToken ? [userData.fcmToken] : []);
 
       if (tokens.length > 0) {
@@ -26,7 +25,7 @@ export default async function handler(req, res) {
           tokens: tokens,
           notification: {
             title: 'Habit Tracker 🎯',
-            body: 'Zeit für deine Daily Habits! Hak deine Erfolge für heute ab.'
+            body: 'Vergiss nicht, deine heutigen Gewohnheiten abzuhaken!'
           }
         });
         sentCount += response.successCount;
