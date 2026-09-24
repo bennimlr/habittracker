@@ -973,24 +973,27 @@ async function enablePushNotifications() {
         if (permission === 'granted') {
             const registration = await navigator.serviceWorker.ready;
 
+            // Hier deinen echten VAPID-Key aus der Firebase Console einfügen!
             const token = await messaging.getToken({ 
                 vapidKey: 'BPdI8gj_HEKn2A5QZHgyP0UoFzj-zNQunVsIjNknMFcXvuSETxqHNfUE1icWgfof5LtFNjSF8Wzksxzf7-r8V1c', 
                 serviceWorkerRegistration: registration 
             });
 
             if (token) {
-                // NEU: Speichert das Token in ein Array, ohne alte Geräte zu löschen
+                // Speichert das Token sicher als Array in der Cloud (unterstützt PC & Handy gleichzeitig)
                 await db.collection('users').doc(currentUser.uid).set({
                     fcmTokens: firebase.firestore.FieldValue.arrayUnion(token)
                 }, { merge: true });
                 
-                userSettings.pushEnabled = true;
-                await saveGamificationSettings();
-                
-                alert("Push-Benachrichtigungen für dieses Gerät aktiviert! 🚀");
+                alert("Push-Benachrichtigungen erfolgreich aktiviert! 🚀");
+            } else {
+                alert("Kein Token erhalten.");
             }
+        } else {
+            alert("Du hast Benachrichtigungen im Browser blockiert.");
         }
     } catch (error) {
         console.error("Fehler bei Push-Aktivierung:", error);
+        alert("Fehler: " + error.message);
     }
 }
