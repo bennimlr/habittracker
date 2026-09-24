@@ -432,16 +432,18 @@
                     </button>
                 </div>
 				<!-- Notification -->
-				<div class="mt-6 p-4 bg-gray-800 rounded-xl border border-gray-700">
-					<h4 class="font-bold text-white mb-3">📱 Push-Erinnerung</h4>
-					<div class="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-						<div>
-							<label class="block text-xs text-gray-400 mb-1">Erinnerungs-Uhrzeit</label>
-							<input type="time" id="settingPushTime" class="bg-gray-900 text-white p-2 rounded-lg border border-gray-600 focus:border-indigo-500 w-32">
-						</div>
-						<button type="button" onclick="enablePushNotifications()" class="mt-4 sm:mt-0 bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-lg transition">
-							🔔 Push erlauben
-						</button>
+				<div class="space-y-4">
+					<div>
+						<label class="block text-xs text-gray-400 mb-1">XP pro Level</label>
+						<input type="number" id="settingXpPerLevel" class="bg-gray-900 text-white p-2 rounded-lg border border-gray-600 w-full">
+					</div>
+					<div>
+						<label class="block text-xs text-gray-400 mb-1">Ziel-XP pro Woche</label>
+						<input type="number" id="settingTargetWeekXp" class="bg-gray-900 text-white p-2 rounded-lg border border-gray-600 w-full">
+					</div>
+					<div>
+						<label class="block text-xs text-gray-400 mb-1">Push-Erinnerung Uhrzeit</label>
+						<input type="time" id="settingPushTime" class="bg-gray-900 text-white p-2 rounded-lg border border-gray-600 w-full">
 					</div>
 				</div>
 				

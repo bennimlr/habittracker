@@ -82,15 +82,19 @@ async function loadUserSettings() {
         if (settingsDoc.exists) {
             userSettings = { ...userSettings, ...settingsDoc.data() };
         }
-        document.getElementById('settingXpPerLevel').value = userSettings.xpPerLevel;
-        document.getElementById('settingTargetWeekXp').value = userSettings.targetWeekXp;
-        
-        // NEU: Uhrzeit ins Feld laden
-        const pushTimeEl = document.getElementById('settingPushTime');
-        if (pushTimeEl) pushTimeEl.value = userSettings.pushTime || "20:00";
     } catch (err) {
-        console.error("Fehler beim Laden:", err);
+        console.error("Fehler beim Laden der Einstellungen:", err);
     }
+
+    // Elemente sicher abfragen
+    const elLevelXp = document.getElementById('settingXpPerLevel');
+    const elWeekXp = document.getElementById('settingTargetWeekXp');
+    const elPushTime = document.getElementById('settingPushTime');
+
+    // Nur setzen, wenn das Element auf der aktuellen Seite/Tab existiert
+    if (elLevelXp) elLevelXp.value = userSettings.xpPerLevel || 100;
+    if (elWeekXp) elWeekXp.value = userSettings.targetWeekXp || 215;
+    if (elPushTime) elPushTime.value = userSettings.pushTime || "20:00";
 }
 
 async function saveGamificationSettings() {
