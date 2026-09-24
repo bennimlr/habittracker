@@ -971,32 +971,26 @@ async function enablePushNotifications() {
     try {
         const permission = await Notification.requestPermission();
         if (permission === 'granted') {
-            // Warten, bis der Service Worker im Browser voll aktiv ist
             const registration = await navigator.serviceWorker.ready;
 
-            // FCM Token mit der aktiven Registrierung anfordern
             const token = await messaging.getToken({ 
-                vapidKey: 'DEIN_VAPID_KEY_HIER', // Achte darauf, dass hier dein echter Key steht!
+                vapidKey: 'BPdI8gj_HEKn2A5QZHgyP0UoFzj-zNQunVsIjNknMFcXvuSETxqHNfUE1icWgfof5LtFNjSF8Wzksxzf7-r8V1c', 
                 serviceWorkerRegistration: registration 
             });
 
             if (token) {
+                // NEU: Speichert das Token in ein Array, ohne alte Geräte zu löschen
                 await db.collection('users').doc(currentUser.uid).set({
-					  fcmTokens: firebase.firestore.FieldValue.arrayUnion(token)
-				}, { merge: true });
+                    fcmTokens: firebase.firestore.FieldValue.arrayUnion(token)
+                }, { merge: true });
                 
                 userSettings.pushEnabled = true;
                 await saveGamificationSettings();
                 
-                alert("Push-Benachrichtigungen erfolgreich aktiviert! 🚀");
-            } else {
-                alert("Kein Token erhalten. Bitte versuche es erneut.");
+                alert("Push-Benachrichtigungen für dieses Gerät aktiviert! 🚀");
             }
-        } else {
-            alert("Du hast die Benachrichtigungen blockiert. Bitte in den Browser-Einstellungen erlauben.");
         }
     } catch (error) {
         console.error("Fehler bei Push-Aktivierung:", error);
-        alert("Fehler: " + error.message);
     }
 }
